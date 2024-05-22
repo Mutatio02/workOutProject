@@ -135,8 +135,7 @@ class TodoListGUI {
             rowPanel.add(textField);
             rowPanel.add(checkBox);
             panel.add(rowPanel);
-        }
-
+        } 
         return panel;
     }
 }
@@ -364,7 +363,7 @@ class BodyCheckUIPanel {
         JRadioButton male = new JRadioButton("남성"); // 성별 선택 버튼
         JRadioButton female = new JRadioButton("여성");
         JButton checkBodyFatButton = createButton("체지방률 검사"); // 검사 버튼 생성
-        JButton checkCalorieButton = createButton("칼로리 검사");
+        JButton checkCalorieButton = createButton("기초 대사량 검사");
         JButton informationButton = createButton("추천 정보");
         JComboBox<String> activityComboBox = new JComboBox<>(new String[]{"비활동적(운동X)", "가벼운 활동(주 1~3일 운동)", "보통 활동(주 3~5일 운등)", "적극적 활동(주 6~7일 운등)", "매우 적극적 활동(주 6~7일 운등)"});
 
@@ -385,7 +384,7 @@ class BodyCheckUIPanel {
         
         bodyCheckFrame.setVisible(true);
         // 로직을 컨트롤 하는 클래스에서 생성
-        BodyCheckController controller = new BodyCheckController(bodyCheckFrame, inputHeight, inputWeight, inputAge, male, female, checkBodyFatButton, checkCalorieButton, informationButton, activityComboBox);
+        BodyCheckController controller = new BodyCheckController(bodyCheckFrame, inputHeight, inputWeight, inputAge, male, female, checkBodyFatButton, checkCalorieButton, informationButton, activityComboBox,0);
     }
     
     // 성별패널 생성 메소드(매개변수는 버튼)
@@ -434,8 +433,9 @@ class BodyCheckController {
     private JButton checkCalorieButton;
     private JButton informationButton;
     private JComboBox<String> activityComboBox;
-
-    public BodyCheckController(JFrame bodyCheckFrame, JTextField inputHeight, JTextField inputWeight, JTextField inputAge, JRadioButton male, JRadioButton female, JButton checkBodyFatButton, JButton checkCalorieButton, JButton informationButton, JComboBox<String> activityComboBox) {
+    private int initalCalroireGoal;
+    
+    public BodyCheckController(JFrame bodyCheckFrame, JTextField inputHeight, JTextField inputWeight, JTextField inputAge, JRadioButton male, JRadioButton female, JButton checkBodyFatButton, JButton checkCalorieButton, JButton informationButton, JComboBox<String> activityComboBox,int initialCalorieGoal) {
         this.bodyCheckFrame = bodyCheckFrame;
         this.inputHeight = inputHeight;
         this.inputWeight = inputWeight;
@@ -446,7 +446,7 @@ class BodyCheckController {
         this.checkCalorieButton = checkCalorieButton;
         this.informationButton = informationButton;
         this.activityComboBox = activityComboBox;
-
+        this.initalCalroireGoal = initalCalroireGoal;
         checkBodyFat();
         checkCalorie();
         showRecommend();
@@ -517,8 +517,8 @@ class BodyCheckController {
     public void showRecommend() {
         informationButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-            	isRecommend = true;
-            	if (!isGenderSelected()) {
+                isRecommend = true;
+                if (!isGenderSelected()) {
                     JOptionPane.showMessageDialog(bodyCheckFrame, "성별을 선택해주세요.", "오류", JOptionPane.WARNING_MESSAGE);
                     return; // 계산을 진행하지 않고 종료
                 }
@@ -537,21 +537,39 @@ class BodyCheckController {
                     }
                     
                     double targetCalorie = AMR * BMR;
-          
+
                     if (BMI < 0) {
                         JOptionPane.showMessageDialog(bodyCheckFrame, "오류입니다 ", "정보", JOptionPane.WARNING_MESSAGE);
                     } else if (BMI < 18.5) {
-                        JOptionPane.showMessageDialog(bodyCheckFrame, "저체중입니다" + "\n추천섭취 칼로리: " + String.format("%.0f", targetCalorie), "정보", JOptionPane.INFORMATION_MESSAGE);  
+                        showRecommendationMessage("저체중입니다", targetCalorie);
                     } else if (BMI < 24.9) {
-                        JOptionPane.showMessageDialog(bodyCheckFrame, "정상체중입니다" + "\n추천섭취 칼로리: " + String.format("%.0f", targetCalorie), "정보", JOptionPane.INFORMATION_MESSAGE);
+                        showRecommendationMessage("정상체중입니다", targetCalorie);
                     } else if (BMI < 29.9) {
-                        JOptionPane.showMessageDialog(bodyCheckFrame, "과체중입니다" + "\n추천섭취 칼로리: " + String.format("%.0f", targetCalorie), "정보", JOptionPane.INFORMATION_MESSAGE);
+                        showRecommendationMessage("과체중입니다", targetCalorie);
                     } else {
-                        JOptionPane.showMessageDialog(bodyCheckFrame, "비만입니다" + "\n추천섭취 칼로리: " + String.format("%.0f", targetCalorie), "정보", JOptionPane.INFORMATION_MESSAGE);
+                        showRecommendationMessage("비만입니다", targetCalorie);
                     }
                 });
             }
         });
+    }
+
+    private void showRecommendationMessage(String weightStatus, double targetCalorie) {
+        String[] options = {"확인", "영양소 계산기 실행"};
+        int response = JOptionPane.showOptionDialog(
+            bodyCheckFrame, 
+            weightStatus + "\n추천섭취 칼로리: " + String.format("%.0f", targetCalorie), 
+            "정보", 
+            JOptionPane.DEFAULT_OPTION, 
+            JOptionPane.INFORMATION_MESSAGE, 
+            null, 
+            options, 
+            options[0]
+        );
+        if (response == 1) { // "영양소 계산기 실행" 버튼이 눌렸을 때 -- 배열의 1번 인덱스인 1값일 경우
+            TargetCalorieUI targetCalorieUI = new TargetCalorieUI((int) targetCalorie);
+            targetCalorieUI.setVisible(true);
+        }
     }
    
     // BMI를 계산하는 메소드(성별에 관계없이 계산 가능)
@@ -595,12 +613,16 @@ class TargetCalorieUI extends JFrame {
         private JComboBox<String> fatComboBox;
         private JComboBox<String> carbComboBox;
     
-        public TargetCalorieUI() {
+        public TargetCalorieUI(int initialCalorieGoal) {
             setTitle("영양소 계산기");
             setSize(300, 200);
             setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE); // 현재 프레임만 닫도록 설정
             setLayout(new GridLayout(3, 2)); // 종료 버튼을 추가하기 위해 열의 개수를 늘림
-   
+            
+            // 초기 칼로리 목표량 설정
+            calorieGoal = initialCalorieGoal;
+            calorieField.setText(String.valueOf(calorieGoal));
+            
             JPanel mainPanel = new JPanel();
             mainPanel.setLayout(new GridLayout(2, 2));
             mainPanel.add(calorieLabel);
@@ -691,7 +713,8 @@ class ExerciseRandomizerGUI extends JFrame {
     private JButton cardioButton;
     private JButton anaerobicButton;
     private JButton exitButton;
-
+    private JButton tButton;
+    
     private String[] lowIntensityCardio = {"걷기", "줄넘기", "훌라후프", "계단 오르내리기","조깅"};
     private String[] highIntensityCardio = {"버피 테스트", "마운틴 클라이머","빨리 달리기","수영","박스 점프","사이클 스프린트","빠르게 계단 오르기"};
 
@@ -724,6 +747,13 @@ class ExerciseRandomizerGUI extends JFrame {
         exitButton = new JButton("종료"); 
         panel2.add(exitButton); 
         add(panel2); 
+        
+        JPanel panel3 = new JPanel();
+        panel3.setLayout(new FlowLayout(FlowLayout.CENTER));
+        tButton = new JButton("타이머 바로가기"); 
+        panel3.add(tButton); 
+        add(panel3); 
+        
 
         cardioButton.addActionListener(new ActionListener() {
             @Override
@@ -746,6 +776,11 @@ class ExerciseRandomizerGUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String bodyPart = (String) JOptionPane.showInputDialog(null, "운동할 부위를 선택하세요.", "무산소 운동", JOptionPane.QUESTION_MESSAGE, null, new String[]{"가슴", "등", "어깨", "이두", "삼두", "하체"}, "가슴");
+                //예외처리
+                if(bodyPart ==null)
+                {
+                	return;
+                }
 
                 String[] exerciseArray = null;
                 switch (bodyPart) {
@@ -768,7 +803,7 @@ class ExerciseRandomizerGUI extends JFrame {
                         exerciseArray = anaerobicExercises;
                         break;
                 }
-
+                
                 if (exerciseArray != null) {
                     String exercise = getRandomExercise(exerciseArray);
                     JOptionPane.showMessageDialog(null, "추천 운동은: " + exercise, "운동 추천 결과", JOptionPane.INFORMATION_MESSAGE);
@@ -780,6 +815,12 @@ class ExerciseRandomizerGUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 dispose();
+            }
+        });
+        tButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+            	TimerUI workouttimerUI = new TimerUI(); // 타이머 UI 객체 생성
+                workouttimerUI.showTimerUI(); // 타이머 UI 표시
             }
         });
 
@@ -902,7 +943,8 @@ public class WorkoutprojectMenu {
             if (selectedNumber == JOptionPane.YES_OPTION) {
                 JOptionPane.showMessageDialog(frame, "영양소 계산기를 시작합니다.");
                 // 영양소 계산기 실행
-                TargetCalorieUI targetCalorieUI = new TargetCalorieUI();
+                int setCalorie = 0; // 초기화
+                TargetCalorieUI targetCalorieUI = new TargetCalorieUI(setCalorie);
                 targetCalorieUI.setVisible(true);
             } else if (selectedNumber == JOptionPane.NO_OPTION) {
                 JOptionPane.showMessageDialog(frame, "영양소 계산기가 취소되었습니다.");
@@ -946,7 +988,7 @@ public class WorkoutprojectMenu {
     // ToDoList 실행 메소드
     private static void showTodoList() {
         JFrame todoFrame = new JFrame("ToDoList");
-        todoFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        todoFrame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
 
         TodoListGUI todoListGUI = new TodoListGUI();
         JPanel todoPanel = todoListGUI.getMainPanel();
